@@ -145,10 +145,11 @@ async def on_message(message):
     elif message.content.startswith("!help"):
         await message.channel.send("""
 🎵 **Music Commands:**
-`!play [nama/url]` — Play lagu dari YouTube
-`!skip` — Skip lagu sekarang
-`!stop` — Stop musik & keluar voice channel
-`!queue` — Lihat antrian lagu
+`vplay [nama/url]` — Play lagu dari YouTube
+`vskip` — Skip lagu sekarang
+`vstop` — Stop musik & keluar voice channel
+`vqueue` — Lihat antrian lagu
+
 
 ⭐ **Level Commands:**
 Chat aktif = dapat XP otomatis!
