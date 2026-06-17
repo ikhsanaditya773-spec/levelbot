@@ -52,7 +52,15 @@ YTDL_OPTIONS = {
     'format': 'bestaudio/best',
     'noplaylist': True,
     'quiet': True,
-    'default_search': 'scsearch', # Dialihkan ke SoundCloud agar anti-blokir YouTube
+    'default_search': 'ytsearch', # Kembali ke YouTube, tapi pakai trik bypass di bawah
+    'nocheckcertificate': True,
+    'ext': 'mp3',
+    # Trik memalsukan User-Agent agar tidak dianggap bot / terkena DRM
+    'http_headers': {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
+        'Accept-Language': 'en-US,en;q=0.9',
+    }
 }
 
 FFMPEG_OPTIONS = {
@@ -79,19 +87,20 @@ async def play_next(voice_client):
     if len(music_queue) > 0:
         is_playing = True
         query = music_queue.pop(0)
-        
-        # Cek jika input berupa link Spotify
+
+        # FIX: Cek jika input berupa link Spotify asli
         if "spotify.com" in query:
             track_info = get_spotify_track_info(query)
             if track_info:
-                query = f"scsearch1:{track_info}"
+                query = f"ytsearch1:{track_info}"
             else:
                 print("Gagal mengambil data dari Spotify.")
                 is_playing = False
                 await play_next(voice_client)
                 return
-        elif not query.startswith("http") and not query.startswith("scsearch"):
-            query = f"scsearch1:{query}"
+                
+        elif not query.startswith("http") and not query.startswith("ytsearch"):
+            query = f"ytsearch1:{query}"
 
         try:
             with yt_dlp.YoutubeDL(YTDL_OPTIONS) as ydl:
@@ -162,6 +171,7 @@ async def on_message(message):
 
         music_queue.append(query)
         
+        # FIX: Pengecekan respons text di Discord chat
         if "spotify.com" in query:
             await message.channel.send(f"🟢 **Spotify Link** berhasil ditambahkan ke antrian!")
         else:
