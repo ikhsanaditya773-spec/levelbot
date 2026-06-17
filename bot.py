@@ -43,7 +43,7 @@ YTDL_OPTIONS = {
     'format': 'bestaudio/best',
     'noplaylist': True,
     'quiet': True,
-    'default_search': 'ytsearch',
+    'default_search': 'ytsearch', # DIUBAH KE YT
 }
 
 FFMPEG_OPTIONS = {
@@ -56,12 +56,20 @@ async def play_next(voice_client):
     if len(music_queue) > 0:
         is_playing = True
         url = music_queue.pop(0)
-        with yt_dlp.YoutubeDL(YTDL_OPTIONS) as ydl:
-            info = ydl.extract_info(url, download=False)
-            audio_url = info['url']
-            title = info.get('title', 'Unknown')
-        source = discord.FFmpegPCMAudio(audio_url, **FFMPEG_OPTIONS)
-        voice_client.play(source, after=lambda e: asyncio.run_coroutine_threadsafe(play_next(voice_client), client.loop))
+        try:
+            with yt_dlp.YoutubeDL(YTDL_OPTIONS) as ydl:
+                info = ydl.extract_info(url, download=False)
+                # Jika hasil pencarian berupa entri list, ambil yang pertama
+                if 'entries' in info:
+                    info = info['entries'][0]
+                audio_url = info['url']
+            
+            source = discord.FFmpegPCMAudio(audio_url, **FFMPEG_OPTIONS)
+            voice_client.play(source, after=lambda e: asyncio.run_coroutine_threadsafe(play_next(voice_client), client.loop))
+        except Exception as e:
+            print(f"Eror saat memutar: {e}")
+            is_playing = False
+            await play_next(voice_client)
     else:
         is_playing = False
 
@@ -93,7 +101,7 @@ async def on_message(message):
                 await message.author.add_roles(role)
                 await message.channel.send(f"🔓 {message.author.mention} unlock channel secret!")
 
-    # ===== MUSIC COMMANDS =====
+# ===== MUSIC COMMANDS =====
     if message.content.startswith("vplay"):
         if not message.author.voice:
             await message.channel.send("❌ Kamu harus masuk voice channel dulu!")
@@ -112,7 +120,7 @@ async def on_message(message):
 
         # Search YouTube
         if not query.startswith("http"):
-            query = f"ytsearch1:{query}"
+            query = f"ytsearch1:{query}" # DIUBAH KE YTSEARCH1
 
         music_queue.append(query)
         await message.channel.send(f"🎵 Ditambahkan ke antrian!")
