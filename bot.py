@@ -43,7 +43,10 @@ YTDL_OPTIONS = {
     'format': 'bestaudio/best',
     'noplaylist': True,
     'quiet': True,
-    'default_search': 'ytsearch', # DIUBAH KE YT
+    'default_search': 'ytsearch',
+    # Tambahkan baris di bawah ini untuk melewati blokir 429 / Sign in
+    'username': 'oauth2',
+    'password': '',
 }
 
 FFMPEG_OPTIONS = {
