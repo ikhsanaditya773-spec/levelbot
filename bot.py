@@ -43,7 +43,7 @@ YTDL_OPTIONS = {
     'format': 'bestaudio/best',
     'noplaylist': True,
     'quiet': True,
-    'default_search': 'scsearch',
+    'default_search': 'ytsearch',
 }
 
 FFMPEG_OPTIONS = {
@@ -112,7 +112,7 @@ async def on_message(message):
 
         # Search YouTube
         if not query.startswith("http"):
-            query = f"scsearch:{query}"
+            query = f"ytsearch1:{query}"
 
         music_queue.append(query)
         await message.channel.send(f"🎵 Ditambahkan ke antrian!")
