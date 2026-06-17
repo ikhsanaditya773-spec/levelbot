@@ -93,14 +93,14 @@ async def on_message(message):
                 await message.channel.send(f"🔓 {message.author.mention} unlock channel secret!")
 
     # ===== MUSIC COMMANDS =====
-    if message.content.startswith("!play"):
+    if message.content.startswith("vplay"):
         if not message.author.voice:
             await message.channel.send("❌ Kamu harus masuk voice channel dulu!")
             return
 
         query = message.content[6:].strip()
         if not query:
-            await message.channel.send("❌ Tulis nama lagu atau URL! Contoh: `!play Coldplay`")
+            await message.channel.send("❌ Tulis nama lagu atau URL! Contoh: `vplay Coldplay`")
             return
 
         voice_channel = message.author.voice.channel
@@ -119,14 +119,14 @@ async def on_message(message):
         if not is_playing:
             await play_next(vc)
 
-    elif message.content.startswith("!skip"):
+    elif message.content.startswith("vskip"):
         if message.guild.voice_client and message.guild.voice_client.is_playing():
             message.guild.voice_client.stop()
             await message.channel.send("⏭️ Lagu diskip!")
         else:
             await message.channel.send("❌ Tidak ada lagu yang sedang diputar!")
 
-    elif message.content.startswith("!stop"):
+    elif message.content.startswith("vstop"):
         if message.guild.voice_client:
             music_queue.clear()
             message.guild.voice_client.stop()
@@ -135,14 +135,14 @@ async def on_message(message):
         else:
             await message.channel.send("❌ Bot tidak ada di voice channel!")
 
-    elif message.content.startswith("!queue"):
+    elif message.content.startswith("vqueue"):
         if len(music_queue) == 0:
             await message.channel.send("📭 Antrian kosong!")
         else:
             q = "\n".join([f"{i+1}. {url}" for i, url in enumerate(music_queue)])
             await message.channel.send(f"📋 **Antrian:**\n{q}")
 
-    elif message.content.startswith("!help"):
+    elif message.content.startswith("vhelp"):
         await message.channel.send("""
 🎵 **Music Commands:**
 `vplay [nama/url]` — Play lagu dari YouTube
