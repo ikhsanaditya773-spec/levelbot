@@ -3,11 +3,20 @@ import json
 import os
 import asyncio
 import yt_dlp
+import spotipy
+from spotipy.oauth2 import SpotifyClientCredentials
 
 intents = discord.Intents.default()
 intents.message_content = True
 
 client = discord.Client(intents=intents)
+
+# ===== SPOTIFY CREDENTIALS =====
+# Menggunakan kredensial publik ringan untuk membaca data lagu/playlist
+sp = spotipy.Spotify(auth_manager=SpotifyClientCredentials(
+    client_id="YOUR_SPOTIFY_CLIENT_ID", 
+    client_secret="YOUR_SPOTIFY_CLIENT_SECRET"
+))
 
 # ===== LEVEL SYSTEM =====
 XP_FILE = "xp_data.json"
@@ -43,10 +52,7 @@ YTDL_OPTIONS = {
     'format': 'bestaudio/best',
     'noplaylist': True,
     'quiet': True,
-    'default_search': 'ytsearch',
-    # Tambahkan baris di bawah ini untuk melewati blokir 429 / Sign in
-    'username': 'oauth2',
-    'password': '',
+    'default_search': 'scsearch', # Dialihkan ke SoundCloud agar anti-blokir YouTube
 }
 
 FFMPEG_OPTIONS = {
@@ -54,23 +60,56 @@ FFMPEG_OPTIONS = {
     'options': '-vn',
 }
 
+def get_spotify_track_info(url):
+    try:
+        if "track" in url:
+            track = sp.track(url)
+            return f"{track['name']} {track['artists'][0]['name']}"
+        elif "playlist" in url:
+            playlist = sp.playlist_tracks(url, limit=1)
+            if playlist['items']:
+                track = playlist['items'][0]['track']
+                return f"{track['name']} {track['artists'][0]['name']}"
+    except Exception as e:
+        print(f"Spotify API Error: {e}")
+    return None
+
 async def play_next(voice_client):
     global is_playing
     if len(music_queue) > 0:
         is_playing = True
-        url = music_queue.pop(0)
+        query = music_queue.pop(0)
+        
+        # Cek jika input berupa link Spotify
+        if "spotify.com" in query:
+            track_info = get_spotify_track_info(query)
+            if track_info:
+                query = f"scsearch1:{track_info}"
+            else:
+                print("Gagal mengambil data dari Spotify.")
+                is_playing = False
+                await play_next(voice_client)
+                return
+        elif not query.startswith("http") and not query.startswith("scsearch"):
+            query = f"scsearch1:{query}"
+
         try:
             with yt_dlp.YoutubeDL(YTDL_OPTIONS) as ydl:
-                info = ydl.extract_info(url, download=False)
-                # Jika hasil pencarian berupa entri list, ambil yang pertama
+                info = ydl.extract_info(query, download=False)
                 if 'entries' in info:
-                    info = info['entries'][0]
+                    if len(info['entries']) > 0:
+                        info = info['entries'][0]
+                    else:
+                        print("Lagu tidak ditemukan di database audio.")
+                        is_playing = False
+                        await play_next(voice_client)
+                        return
                 audio_url = info['url']
             
             source = discord.FFmpegPCMAudio(audio_url, **FFMPEG_OPTIONS)
             voice_client.play(source, after=lambda e: asyncio.run_coroutine_threadsafe(play_next(voice_client), client.loop))
         except Exception as e:
-            print(f"Eror saat memutar: {e}")
+            print(f"Eror saat memutar audio: {e}")
             is_playing = False
             await play_next(voice_client)
     else:
@@ -104,7 +143,7 @@ async def on_message(message):
                 await message.author.add_roles(role)
                 await message.channel.send(f"🔓 {message.author.mention} unlock channel secret!")
 
-# ===== MUSIC COMMANDS =====
+    # ===== MUSIC COMMANDS =====
     if message.content.startswith("vplay"):
         if not message.author.voice:
             await message.channel.send("❌ Kamu harus masuk voice channel dulu!")
@@ -112,7 +151,7 @@ async def on_message(message):
 
         query = message.content[5:].strip()
         if not query:
-            await message.channel.send("❌ Tulis nama lagu atau URL! Contoh: `vplay Coldplay`")
+            await message.channel.send("❌ Tulis nama lagu atau Link Spotify! Contoh: `vplay Coldplay` atau `vplay [Link Spotify]`")
             return
 
         voice_channel = message.author.voice.channel
@@ -121,12 +160,12 @@ async def on_message(message):
         
         vc = message.guild.voice_client
 
-        # Search YouTube
-        if not query.startswith("http"):
-            query = f"ytsearch1:{query}" # DIUBAH KE YTSEARCH1
-
         music_queue.append(query)
-        await message.channel.send(f"🎵 Ditambahkan ke antrian!")
+        
+        if "spotify.com" in query:
+            await message.channel.send(f"🟢 **Spotify Link** berhasil ditambahkan ke antrian!")
+        else:
+            await message.channel.send(f"🎵 **{query}** berhasil ditambahkan ke antrian!")
 
         if not is_playing:
             await play_next(vc)
@@ -157,11 +196,10 @@ async def on_message(message):
     elif message.content.startswith("vhelp"):
         await message.channel.send("""
 🎵 **Music Commands:**
-`vplay [nama/url]` — Play lagu dari YouTube
+`vplay [nama/link spotify]` — Mainkan lagu (Teks biasa / Link Spotify)
 `vskip` — Skip lagu sekarang
 `vstop` — Stop musik & keluar voice channel
 `vqueue` — Lihat antrian lagu
-
 
 ⭐ **Level Commands:**
 Chat aktif = dapat XP otomatis!
