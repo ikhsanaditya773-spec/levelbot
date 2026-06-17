@@ -98,7 +98,7 @@ async def on_message(message):
             await message.channel.send("❌ Kamu harus masuk voice channel dulu!")
             return
 
-        query = message.content[6:].strip()
+        query = message.content[5:].strip()
         if not query:
             await message.channel.send("❌ Tulis nama lagu atau URL! Contoh: `vplay Coldplay`")
             return
