@@ -1,1 +1,5 @@
-worker: python bot.py
+[phases.setup]
+nixPkgs = ["ffmpeg", "libopus"]
+
+[start]
+cmd = "python bot.py"
