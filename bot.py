@@ -64,4 +64,5 @@ async def on_message(message):
                     f"🔓 {message.author.mention} unlock channel secret!"
                 )
 
-client.run("TOKEN")
+import os
+client.run(os.environ["TOKEN"])
