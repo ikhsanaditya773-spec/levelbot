@@ -1,8 +1,11 @@
-[phases.setup]
-nixPkgs = ["python312", "ffmpeg", "libopus"]
+[providers]
+providers = ["python"]
 
-[phases.install]
-cmds = ["pip install -r requirements.txt"]
+[setup]
+aptPkgs = ["ffmpeg", "libopus-dev", "build-essential"]
+
+[install]
+cmds = ["python -m pip install --upgrade pip", "pip install -r requirements.txt"]
 
 [start]
 cmd = "python bot.py"
