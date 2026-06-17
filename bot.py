@@ -43,6 +43,10 @@ YTDL_OPTIONS = {
     'format': 'bestaudio/best',
     'noplaylist': True,
     'quiet': True,
+    'extract_flat': False,
+    'source_address': '0.0.0.0',
+    'age_limit': None,
+    'extractor_args': {'youtube': {'skip': ['dash', 'hls']}},
 }
 
 FFMPEG_OPTIONS = {
