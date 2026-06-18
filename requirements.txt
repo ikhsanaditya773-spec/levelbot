@@ -3,3 +3,4 @@ yt-dlp
 PyNaCl
 ffmpeg-python
 spotipy
+psycopg2-binary
