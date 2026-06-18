@@ -4,6 +4,7 @@ import os
 import asyncio
 import yt_dlp
 import spotipy
+import psycopg2
 from spotipy.oauth2 import SpotifyClientCredentials
 
 intents = discord.Intents.default()
@@ -12,24 +13,49 @@ intents.message_content = True
 client = discord.Client(intents=intents)
 
 # ===== SPOTIFY CREDENTIALS =====
-# Menggunakan kredensial publik ringan untuk membaca data lagu/playlist
 sp = spotipy.Spotify(auth_manager=SpotifyClientCredentials(
     client_id="YOUR_SPOTIFY_CLIENT_ID", 
     client_secret="YOUR_SPOTIFY_CLIENT_SECRET"
 ))
 
-# ===== LEVEL SYSTEM =====
-XP_FILE = "xp_data.json"
+# ===== DATABASE =====
+DATABASE_URL = os.environ["DATABASE_URL"]
 
-def load_xp():
-    if os.path.exists(XP_FILE):
-        with open(XP_FILE, "r") as f:
-            return json.load(f)
-    return {}
+def get_db():
+    return psycopg2.connect(DATABASE_URL)
 
-def save_xp(data):
-    with open(XP_FILE, "w") as f:
-        json.dump(data, f)
+def init_db():
+    conn = get_db()
+    cur = conn.cursor()
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS xp_data (
+            user_id TEXT PRIMARY KEY,
+            xp INTEGER DEFAULT 0
+        )
+    """)
+    conn.commit()
+    cur.close()
+    conn.close()
+
+def get_xp(user_id):
+    conn = get_db()
+    cur = conn.cursor()
+    cur.execute("SELECT xp FROM xp_data WHERE user_id = %s", (user_id,))
+    row = cur.fetchone()
+    cur.close()
+    conn.close()
+    return row[0] if row else 0
+
+def set_xp(user_id, xp):
+    conn = get_db()
+    cur = conn.cursor()
+    cur.execute("""
+        INSERT INTO xp_data (user_id, xp) VALUES (%s, %s)
+        ON CONFLICT (user_id) DO UPDATE SET xp = %s
+    """, (user_id, xp, xp))
+    conn.commit()
+    cur.close()
+    conn.close()
 
 def get_level(xp):
     level = 0
@@ -40,9 +66,10 @@ def get_level(xp):
         required += 50
     return level
 
+init_db()
+
 LEVEL_UNLOCK = 5
 ROLE_NAME = "Level5"
-xp_data = load_xp()
 
 # ===== MUSIC SYSTEM =====
 music_queue = []
@@ -52,10 +79,9 @@ YTDL_OPTIONS = {
     'format': 'bestaudio/best',
     'noplaylist': True,
     'quiet': True,
-    'default_search': 'ytsearch', # Kembali ke YouTube, tapi pakai trik bypass di bawah
+    'default_search': 'ytsearch',
     'nocheckcertificate': True,
     'ext': 'mp3',
-    # Trik memalsukan User-Agent agar tidak dianggap bot / terkena DRM
     'http_headers': {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
         'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
@@ -88,7 +114,6 @@ async def play_next(voice_client):
         is_playing = True
         query = music_queue.pop(0)
 
-        # FIX: Cek jika input berupa link Spotify asli
         if "spotify.com" in query:
             track_info = get_spotify_track_info(query)
             if track_info:
@@ -98,7 +123,6 @@ async def play_next(voice_client):
                 is_playing = False
                 await play_next(voice_client)
                 return
-                
         elif not query.startswith("http") and not query.startswith("ytsearch"):
             query = f"ytsearch1:{query}"
 
@@ -109,12 +133,11 @@ async def play_next(voice_client):
                     if len(info['entries']) > 0:
                         info = info['entries'][0]
                     else:
-                        print("Lagu tidak ditemukan di database audio.")
+                        print("Lagu tidak ditemukan.")
                         is_playing = False
                         await play_next(voice_client)
                         return
                 audio_url = info['url']
-            
             source = discord.FFmpegPCMAudio(audio_url, **FFMPEG_OPTIONS)
             voice_client.play(source, after=lambda e: asyncio.run_coroutine_threadsafe(play_next(voice_client), client.loop))
         except Exception as e:
@@ -137,11 +160,11 @@ async def on_message(message):
 
     # ===== XP SYSTEM =====
     user_id = str(message.author.id)
-    old_xp = xp_data.get(user_id, 0)
+    old_xp = get_xp(user_id)
     old_level = get_level(old_xp)
-    xp_data[user_id] = old_xp + 15
-    save_xp(xp_data)
-    new_level = get_level(xp_data[user_id])
+    new_xp = old_xp + 15
+    set_xp(user_id, new_xp)
+    new_level = get_level(new_xp)
 
     if new_level > old_level:
         await message.channel.send(f"🎉 {message.author.mention} naik ke **Level {new_level}**!")
@@ -166,12 +189,10 @@ async def on_message(message):
         voice_channel = message.author.voice.channel
         if message.guild.voice_client is None:
             await voice_channel.connect()
-        
-        vc = message.guild.voice_client
 
+        vc = message.guild.voice_client
         music_queue.append(query)
-        
-        # FIX: Pengecekan respons text di Discord chat
+
         if "spotify.com" in query:
             await message.channel.send(f"🟢 **Spotify Link** berhasil ditambahkan ke antrian!")
         else:
@@ -196,6 +217,11 @@ async def on_message(message):
         else:
             await message.channel.send("❌ Bot tidak ada di voice channel!")
 
+    elif message.content.startswith("vxp"):
+        xp = get_xp(user_id)
+        level = get_level(xp)
+        await message.channel.send(f"⭐ {message.author.mention} | **Level {level}** | **XP: {xp}**")
+
     elif message.content.startswith("vqueue"):
         if len(music_queue) == 0:
             await message.channel.send("📭 Antrian kosong!")
@@ -212,6 +238,7 @@ async def on_message(message):
 `vqueue` — Lihat antrian lagu
 
 ⭐ **Level Commands:**
+`vxp` — Cek XP & level kamu
 Chat aktif = dapat XP otomatis!
 Level 5 = unlock channel secret!
         """)
