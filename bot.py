@@ -75,15 +75,17 @@ ROLE_NAME = "Level5"
 music_queue = []
 is_playing = False
 
+# PERBAIKAN: Mengalihkan pencarian utama ke SoundCloud Engine yang lebih kebal blokir IP cloud
 YTDL_OPTIONS = {
     'format': 'bestaudio/best',
     'noplaylist': True,
     'quiet': True,
-    'default_search': 'ytsearch',
+    'default_search': 'scsearch', 
     'nocheckcertificate': True,
     'ext': 'mp3',
+    'ignoreerrors': True,
     'http_headers': {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
         'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
         'Accept-Language': 'en-US,en;q=0.9',
     }
@@ -117,20 +119,20 @@ async def play_next(voice_client):
         if "spotify.com" in query:
             track_info = get_spotify_track_info(query)
             if track_info:
-                query = f"ytsearch1:{track_info}"
+                query = f"scsearch1:{track_info}"
             else:
                 print("Gagal mengambil data dari Spotify.")
                 is_playing = False
                 await play_next(voice_client)
                 return
-        elif not query.startswith("http") and not query.startswith("ytsearch"):
-            query = f"ytsearch1:{query}"
+        elif not query.startswith("http") and not query.startswith("scsearch"):
+            query = f"scsearch1:{query}"
 
         try:
             with yt_dlp.YoutubeDL(YTDL_OPTIONS) as ydl:
                 info = ydl.extract_info(query, download=False)
                 if 'entries' in info:
-                    if len(info['entries']) > 0:
+                    if info['entries'] and len(info['entries']) > 0:
                         info = info['entries'][0]
                     else:
                         print("Lagu tidak ditemukan.")
