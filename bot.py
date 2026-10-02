@@ -2,13 +2,18 @@ import discord
 import json
 import os
 import asyncio
+import io
+import aiohttp
 import yt_dlp
 import spotipy
 import psycopg2
 from spotipy.oauth2 import SpotifyClientCredentials
+from easy_pil import Editor, Canvas, Font, load_image_async
 
+# ===== INTENTS CONFIGURATION =====
 intents = discord.Intents.default()
 intents.message_content = True
+intents.members = True  # PENTING: Wajib aktif agar event member join terbaca!
 
 client = discord.Client(intents=intents)
 
@@ -75,7 +80,6 @@ ROLE_NAME = "Level5"
 music_queue = []
 is_playing = False
 
-# PERBAIKAN: Mengalihkan pencarian utama ke SoundCloud Engine yang lebih kebal blokir IP cloud
 YTDL_OPTIONS = {
     'format': 'bestaudio/best',
     'noplaylist': True,
@@ -149,9 +153,49 @@ async def play_next(voice_client):
     else:
         is_playing = False
 
+# ===== EVENT HANDLERS =====
+
 @client.event
 async def on_ready():
     print(f"Bot online: {client.user}")
+
+@client.event
+async def on_member_join(member):
+    # GANTI ANGKA DI BAWAH INI dengan ID Channel Welcome kamu di Discord!
+    welcome_channel_id = 1472551428798152875 
+    channel = client.get_channel(welcome_channel_id)
+    if not channel:
+        return
+
+    try:
+        # Load avatar member
+        avatar_image = await load_image_async(str(member.display_avatar.url))
+        
+        # Load background (GANTI LINK INI dengan link direct GIF kamu)
+        bg_url = "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjEx.../giphy.gif"
+        bg_image = await load_image_async(bg_url)
+
+        # Buat Card Welcome
+        background = Editor(bg_image).resize((800, 450))
+        avatar = Editor(avatar_image).resize((160, 160)).circleify()
+
+        # Tempelkan Avatar ke Background
+        background.paste(avatar, (60, 145))
+        
+        # Font & Teks
+        font_title = Font.poppins(size=35, bold=True)
+        font_sub = Font.poppins(size=25, bold=False)
+
+        background.text((250, 170), f"Welcome {member.name}", color="white", font=font_title)
+        background.text((250, 220), f"to {member.guild.name}", color="white", font=font_title)
+        background.text((250, 270), f"Member #{member.guild.member_count}", color="#a0a0a0", font=font_sub)
+
+        # Simpan ke buffer dan kirim
+        file = discord.File(fp=background.image_bytes, filename="welcome.gif")
+        await channel.send(content=f"Selamat datang {member.mention}!", file=file)
+
+    except Exception as e:
+        print(f"Error saat membuat welcome card: {e}")
 
 @client.event
 async def on_message(message):
@@ -245,4 +289,5 @@ Chat aktif = dapat XP otomatis!
 Level 5 = unlock channel secret!
         """)
 
+# PANGGUL RUN HANYA DI BAGIAN PALING BAWAH
 client.run(os.environ["TOKEN"])
