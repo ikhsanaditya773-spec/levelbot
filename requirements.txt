@@ -4,3 +4,5 @@ PyNaCl
 ffmpeg-python
 spotipy
 psycopg2-binary
+easy-pil
+Pillow
